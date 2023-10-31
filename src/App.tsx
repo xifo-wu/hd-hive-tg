@@ -1,35 +1,54 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Suspense, useEffect } from 'react';
+import { useAtomValue } from 'jotai';
+import { useTransition, useSpringRef, animated } from '@react-spring/web';
+import PageLoading from './components/PageLoading';
+import SWRConfigContainer from './components/SWRConfigContainer';
+import useStartParams from './hooks/useStartParams';
+import useTelegram from './hooks/useTelegram';
+import useTgUser from './hooks/useTgUser';
+import pageAtom from './atoms/pageAtom';
+import routes from './routes';
 
 function App() {
-  const [count, setCount] = useState(0)
+  useTelegram();
+  useTgUser();
+  useStartParams();
+
+  const { page, params } = useAtomValue(pageAtom);
+  const transRef = useSpringRef();
+
+  const transitions = useTransition(page, {
+    ref: transRef,
+    keys: null,
+    from: { opacity: 0 },
+    enter: { opacity: 1 },
+    leave: { opacity: 0 },
+  });
+
+  useEffect(() => {
+    transRef.start();
+  }, [page]);
 
   return (
     <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <SWRConfigContainer>
+        <Suspense fallback={<PageLoading />}>
+          {transitions((style, page) => {
+            const Page = routes[page];
+            if (!Page) {
+              return <animated.div style={{ ...style, minHeight: '100vh' }}>404</animated.div>;
+            }
+
+            return (
+              <animated.div style={{ ...style, minHeight: '100vh' }}>
+                <Page params={params} />
+              </animated.div>
+            );
+          })}
+        </Suspense>
+      </SWRConfigContainer>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
